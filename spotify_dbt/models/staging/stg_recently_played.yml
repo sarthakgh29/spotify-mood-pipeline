@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: stg_recently_played
+    description: "Cleaned, typed listening history, one row per track play"
+    columns:
+      - name: played_at
+        description: "Timestamp the track was played"
+        tests:
+          - not_null
+      - name: track_id
+        description: "Spotify's unique track identifier"
+        tests:
+          - not_null
+      - name: duration_minutes
+        description: "Track length in minutes, derived from duration_ms"
+        tests:
+          - not_null
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - played_at
+              - track_id

@@ -1,0 +1,13 @@
+version: 2
+
+sources:
+  - name: spotify_raw
+    schema: public
+    tables:
+      - name: raw_recently_played
+        description: "Raw ingestion of recently played tracks from the Spotify API, loaded by ingest.py"
+        columns:
+          - name: played_at
+            description: "Timestamp when the track was played, from Spotify"
+          - name: track_id
+            description: "Spotify's unique ID for the track"

@@ -11,3 +11,8 @@ sources:
             description: "Timestamp when the track was played, from Spotify"
           - name: track_id
             description: "Spotify's unique ID for the track"
+      - name: raw_artist_genres
+        description: "Artist genre tags fetched from Last.fm's artist.getTopTags, keyed by Spotify artist ID"
+        columns:
+          - name: artist_id
+            description: "Spotify's unique ID for the artist"

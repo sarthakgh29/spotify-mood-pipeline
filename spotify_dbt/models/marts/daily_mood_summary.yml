@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: daily_mood_summary
+    description: "Daily listening minutes broken down by mood category, derived from artist genre tags"
+    columns:
+      - name: listen_date
+        tests:
+          - not_null
+      - name: mood
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['calm', 'mellow', 'intense', 'upbeat']
+
+  - name: daily_dominant_mood
+    description: "The single dominant mood per day, ranked by minutes listened"
+    columns:
+      - name: listen_date
+        tests:
+          - not_null
+          - unique
+      - name: dominant_mood
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['calm', 'mellow', 'intense', 'upbeat']

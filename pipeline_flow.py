@@ -43,5 +43,6 @@ def spotify_pipeline():
 if __name__ == "__main__":
     spotify_pipeline.serve(
         name="spotify-daily-deployment",
-        cron="0 20 * * *"  # runs daily at 8:00 PM
+        cron="0 20 * * *",
+        timezone="Asia/Kolkata"
     )

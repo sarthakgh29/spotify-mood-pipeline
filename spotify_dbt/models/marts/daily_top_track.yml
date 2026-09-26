@@ -1,0 +1,13 @@
+version: 2
+
+models:
+  - name: daily_top_track
+    description: "The most-played track for each day, by play count"
+    columns:
+      - name: listen_date
+        tests:
+          - not_null
+          - unique
+      - name: track_name
+        tests:
+          - not_null

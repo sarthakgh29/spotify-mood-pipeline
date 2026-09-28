@@ -2,14 +2,14 @@ import os
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
 load_dotenv()
 
 MOOD_COLORS = {
     "calm": "#5B9BD5",
-    "mellow": "#1DB954",   # Spotify green
+    "mellow": "#1DB954",
     "intense": "#E33A3A",
     "upbeat": "#FFC000",
 }
@@ -57,8 +57,42 @@ def load_data():
         LIMIT 10
     """, engine)
 
+    discovered_recently = pd.read_sql("""
+        SELECT track_id, track_name, artist_names, count(*) as plays, min(played_at) as first_played
+        FROM dbt_dev.stg_recently_played
+        GROUP BY track_id, track_name, artist_names
+        HAVING count(*) > 1
+           AND min(played_at) >= now() - interval '7 days'
+        ORDER BY plays DESC, first_played DESC
+    """, engine)
+
+    liked_tracks = pd.read_sql("""
+        SELECT track_id, track_name, artist_names, liked_at
+        FROM liked_tracks
+        ORDER BY liked_at DESC
+    """, engine)
+
     return (daily_listening, daily_mood, dominant_mood, daily_top_track,
-            today_tracks, top_tracks_week, top_artists_week)
+            today_tracks, top_tracks_week, top_artists_week,
+            discovered_recently, liked_tracks)
+
+def toggle_like(engine, track_id, track_name, artist_names):
+    with engine.begin() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM liked_tracks WHERE track_id = :tid"),
+            {"tid": track_id}
+        ).fetchone()
+        if exists:
+            conn.execute(text("DELETE FROM liked_tracks WHERE track_id = :tid"), {"tid": track_id})
+        else:
+            conn.execute(
+                text("""
+                    INSERT INTO liked_tracks (track_id, track_name, artist_names)
+                    VALUES (:tid, :tname, :aname)
+                """),
+                {"tid": track_id, "tname": track_name, "aname": artist_names}
+            )
+    st.cache_data.clear()
 
 st.set_page_config(page_title="My Listening & Mood", page_icon="🎧", layout="wide")
 
@@ -72,9 +106,65 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 (daily_listening, daily_mood, dominant_mood, daily_top_track,
- today_tracks, top_tracks_week, top_artists_week) = load_data()
+ today_tracks, top_tracks_week, top_artists_week,
+ discovered_recently, liked_tracks) = load_data()
 
 st.title("🎧 My Listening & Mood")
+
+st.components.v1.html("""
+<style>
+    .nav-pill {
+        background:#333; color:white; padding:6px 14px; border-radius:20px;
+        margin-right:8px; font-size:0.85rem; cursor:pointer; display:inline-block;
+        font-family:'Source Sans Pro', sans-serif; transition: background 0.2s ease, transform 0.15s ease;
+    }
+    .nav-pill:hover { background:#1DB954; transform: translateY(-1px); }
+</style>
+<div style="margin-bottom: 0.5rem;">
+    <span class="nav-pill" onclick="smoothScrollTo('discovered-recently')">🔍 Discovered</span>
+    <span class="nav-pill" onclick="smoothScrollTo('liked-songs')">❤️ Liked</span>
+</div>
+<script>
+    function getScrollParent(el, doc) {
+        while (el && el !== doc.body) {
+            const style = window.parent.getComputedStyle(el);
+            if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && el.scrollHeight > el.clientHeight) {
+                return el;
+            }
+            el = el.parentElement;
+        }
+        return doc.scrollingElement || doc.documentElement;
+    }
+
+    function smoothScrollTo(id) {
+        const doc = window.parent.document;
+        const target = doc.getElementById(id);
+        if (!target) return;
+
+        const container = getScrollParent(target.parentElement, doc);
+        const containerRect = container.getBoundingClientRect();
+        const targetRect = target.getBoundingClientRect();
+        const startY = container.scrollTop;
+        const targetY = startY + (targetRect.top - containerRect.top) - 20;
+        const distance = targetY - startY;
+        const duration = 700;
+        let startTime = null;
+
+        function easeInOutCubic(t) {
+            return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
+        }
+
+        function step(timestamp) {
+            if (!startTime) startTime = timestamp;
+            const elapsed = timestamp - startTime;
+            const t = Math.min(elapsed / duration, 1);
+            container.scrollTop = startY + distance * easeInOutCubic(t);
+            if (t < 1) window.parent.requestAnimationFrame(step);
+        }
+        window.parent.requestAnimationFrame(step);
+    }
+</script>
+""", height=45)
 
 # --- Today's dominant mood banner ---
 if not dominant_mood.empty:
@@ -99,7 +189,7 @@ else:
 
 st.write("")
 
-# --- Mood over time, full width ---
+# --- Mood over time (animated, custom HTML/JS) ---
 st.subheader("Mood over time")
 
 if not daily_mood.empty:
@@ -131,11 +221,19 @@ if not daily_mood.empty:
     percent_traces = build_traces("Percent")
 
     chart_html = f"""
+    <style>
+        .mood-btn {{
+            background:#333; color:white; border:none; padding:6px 16px;
+            border-radius:20px; margin-right:8px; cursor:pointer; font-family:sans-serif;
+            transition: background 0.2s ease, transform 0.15s ease;
+        }}
+        .mood-btn:hover {{ background:#2a8a3f; transform: translateY(-1px); }}
+        .mood-btn.active {{ background:#1DB954; }}
+        .mood-btn.active:hover {{ background:#1DB954; }}
+    </style>
     <div id="mood-toggle" style="margin-bottom:10px;">
-        <button id="btn-minutes" onclick="showView('minutes')"
-            style="background:#1DB954;color:white;border:none;padding:6px 16px;border-radius:20px;margin-right:8px;cursor:pointer;font-family:sans-serif;">Minutes</button>
-        <button id="btn-percent" onclick="showView('percent')"
-            style="background:#333;color:white;border:none;padding:6px 16px;border-radius:20px;cursor:pointer;font-family:sans-serif;">% of day</button>
+        <button id="btn-minutes" class="mood-btn active" onclick="showView('minutes')">Minutes</button>
+        <button id="btn-percent" class="mood-btn" onclick="showView('percent')">% of day</button>
     </div>
     <div id="mood-chart" style="width:100%;height:420px;"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
@@ -167,8 +265,8 @@ if not daily_mood.empty:
             const durationMs = 450;
             let frame = 0;
 
-            document.getElementById("btn-minutes").style.background = mode === "minutes" ? "#1DB954" : "#333";
-            document.getElementById("btn-percent").style.background = mode === "percent" ? "#1DB954" : "#333";
+            document.getElementById("btn-minutes").classList.toggle("active", mode === "minutes");
+            document.getElementById("btn-percent").classList.toggle("active", mode === "percent");
 
             function easeInOutCubic(t) {{
                 return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
@@ -203,6 +301,8 @@ if not daily_mood.empty:
     st.components.v1.html(chart_html, height=470)
 else:
     st.info("No mood breakdown available yet.")
+
+st.write("")
 st.markdown("---")
 
 # --- Overall listening activity ---
@@ -275,3 +375,38 @@ with st.expander("🕒 Today's full play history"):
         st.dataframe(df[["Time", "Track", "Artist"]], width="stretch", hide_index=True)
     else:
         st.info("No plays recorded today yet.")
+
+st.markdown("---")
+
+# --- Discovered recently: new to your history, already played more than once ---
+st.markdown('<div id="discovered-recently"></div>', unsafe_allow_html=True)
+st.subheader("🔍 Discovered recently")
+st.caption("New to your history in the last 7 days, and already played more than once.")
+if not discovered_recently.empty:
+    liked_ids = set(liked_tracks["track_id"]) if not liked_tracks.empty else set()
+    with st.container(height=320):
+        for _, row in discovered_recently.iterrows():
+            col_a, col_b = st.columns([5, 1])
+            with col_a:
+                st.write(f"**{row['track_name']}** — {row['artist_names']} ({row['plays']} plays)")
+            with col_b:
+                is_liked = row["track_id"] in liked_ids
+                label = "❤️" if is_liked else "🤍"
+                if st.button(label, key=f"like_{row['track_id']}"):
+                    toggle_like(get_engine(), row["track_id"], row["track_name"], row["artist_names"])
+                    st.rerun()
+else:
+    st.info("No repeated new discoveries in the last 7 days yet.")
+
+st.markdown("---")
+
+# --- Liked songs ---
+st.markdown('<div id="liked-songs"></div>', unsafe_allow_html=True)
+st.subheader("❤️ Liked songs")
+if not liked_tracks.empty:
+    df = liked_tracks.copy()
+    df["Liked"] = pd.to_datetime(df["liked_at"]).dt.strftime("%b %d")
+    df = df.rename(columns={"track_name": "Track", "artist_names": "Artist"})
+    st.dataframe(df[["Track", "Artist", "Liked"]], width="stretch", hide_index=True)
+else:
+    st.info("No liked songs yet — like something from 'Discovered recently' above.")

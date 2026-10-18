@@ -2,11 +2,12 @@ with track_counts as (
 
     select
         date_trunc('day', played_at) as listen_date,
+        track_id,
         track_name,
         artist_names,
         count(*) as play_count
     from {{ ref('stg_recently_played') }}
-    group by 1, 2, 3
+    group by 1, 2, 3, 4
 
 ),
 
@@ -14,12 +15,13 @@ ranked as (
 
     select
         listen_date,
+        track_id,
         track_name,
         artist_names,
         play_count,
         row_number() over (
             partition by listen_date
-            order by play_count desc
+            order by play_count desc, track_id
         ) as rn
     from track_counts
 
@@ -27,6 +29,7 @@ ranked as (
 
 select
     listen_date,
+    track_id,
     track_name,
     artist_names,
     play_count

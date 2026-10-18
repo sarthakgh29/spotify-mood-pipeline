@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: audio_features_raw
+    schema: public
+    tables:
+      - name: raw_track_features
+        description: "Audio features (valence, energy, ...) per Spotify track ID, fetched from ReccoBeats by ingest_features.py. status is 'found' or 'not_found'."
+        columns:
+          - name: track_id
+            description: "Spotify track ID (matches raw_recently_played.track_id)"

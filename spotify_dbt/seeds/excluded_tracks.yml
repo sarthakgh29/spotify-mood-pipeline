@@ -1,0 +1,14 @@
+version: 2
+
+seeds:
+  - name: excluded_tracks
+    description: "Spotify track ids to leave out of the history and the Lifetime Wrapped page (for example an alarm song). Empty by default."
+    config:
+      column_types:
+        track_id: text
+        reason: text
+    columns:
+      - name: track_id
+        description: "Spotify track id"
+      - name: reason
+        description: "Why it is excluded (free text)"

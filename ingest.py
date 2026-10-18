@@ -7,6 +7,8 @@ from spotipy.oauth2 import SpotifyOAuth
 import psycopg2
 from psycopg2.extras import execute_values
 
+import covers
+
 load_dotenv()
 
 sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
@@ -138,6 +140,16 @@ def fetch_and_load_artist_genres(artists_dict):
 
     print(f"Fetched and stored genres for {len(rows)} artists via Last.fm.")
 
+def load_covers(tracks):
+    """Store album covers from the Spotify payload, then look up covers for older tracks that have none."""
+    conn = get_db_connection()
+    try:
+        covers.save_covers(conn, covers.cover_rows_from_payload(tracks))
+        looked_up, found = covers.backfill_covers(conn)
+    finally:
+        conn.close()
+    print(f"Covers: {found} of {looked_up} older tracks looked up via Spotify oEmbed.")
+
 if __name__ == "__main__":
     raw_tracks = fetch_recently_played()
 
@@ -146,3 +158,5 @@ if __name__ == "__main__":
 
     artists = get_unique_artists(raw_tracks)
     fetch_and_load_artist_genres(artists)
+
+    load_covers(raw_tracks)

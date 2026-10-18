@@ -1,0 +1,42 @@
+version: 2
+
+models:
+  - name: stg_track_features
+    description: "Audio features per track from ReccoBeats, including tracks it had no data for (has_features = false)"
+    columns:
+      - name: track_id
+        tests:
+          - not_null
+          - unique
+
+  - name: play_mood_comparison
+    description: "One row per play with the mood under both the genre method and the audio (valence/energy) method"
+    columns:
+      - name: genre_mood
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['calm', 'mellow', 'intense', 'upbeat']
+      - name: audio_mood
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['calm', 'mellow', 'intense', 'upbeat']
+      - name: valence
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: energy
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - played_at
+              - track_id

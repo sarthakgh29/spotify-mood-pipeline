@@ -1,0 +1,79 @@
+version: 2
+
+models:
+  - name: stg_llm_moods
+    description: "Latest language-model mood label per track and variant (hybrid / text_only)"
+    columns:
+      - name: track_id
+        tests:
+          - not_null
+      - name: variant
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['hybrid', 'text_only', 'with_notes']
+      - name: mood
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['calm', 'mellow', 'intense', 'upbeat']
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - track_id
+              - variant
+
+  - name: stg_mood_labels
+    description: "My own hand labels"
+    columns:
+      - name: track_id
+        tests:
+          - not_null
+          - unique
+      - name: mood
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['calm', 'mellow', 'intense', 'upbeat']
+
+  - name: mood_method_eval
+    description: "One row per hand-labelled track with every method's mood beside mine"
+    columns:
+      - name: track_id
+        tests:
+          - not_null
+          - unique
+      - name: user_mood
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['calm', 'mellow', 'intense', 'upbeat']
+      - name: genre_mood
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['calm', 'mellow', 'intense', 'upbeat']
+      - name: audio_mood
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['calm', 'mellow', 'intense', 'upbeat']
+      - name: llm_hybrid_mood
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['calm', 'mellow', 'intense', 'upbeat']
+      - name: llm_text_mood
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['calm', 'mellow', 'intense', 'upbeat']
+      - name: llm_notes_mood
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['calm', 'mellow', 'intense', 'upbeat']

@@ -30,7 +30,8 @@ mood_counts as (
         count(*) as mood_tag_count,
         row_number() over (
             partition by artist_id
-            order by count(*) desc
+            -- mood is the tie-breaker: without it, equal tag counts gave an arbitrary mood that changed between runs
+            order by count(*) desc, mood
         ) as rn
     from tagged
     group by artist_id, artist_name, mood

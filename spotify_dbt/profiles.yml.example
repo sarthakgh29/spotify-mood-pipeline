@@ -1,0 +1,14 @@
+# Copy to ~/.dbt/profiles.yml (Windows: C:\Users\<you>\.dbt\profiles.yml), or to spotify_dbt/profiles.yml
+# (git-ignored) and run dbt with --profiles-dir . from inside spotify_dbt/.
+spotify_dbt:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: localhost
+      port: 5432
+      user: spotify_user
+      password: spotify_pass
+      dbname: spotify_data
+      schema: dbt_dev
+      threads: 4

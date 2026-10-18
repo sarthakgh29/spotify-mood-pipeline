@@ -16,3 +16,23 @@ sources:
         columns:
           - name: artist_id
             description: "Spotify's unique ID for the artist"
+      - name: track_covers
+        description: "Album cover URLs (Spotify image hosts only), cached by ingest.py / covers.py"
+        columns:
+          - name: track_id
+            description: "Spotify track ID"
+      - name: raw_llm_moods
+        description: "Mood labels from a language model (Gemini), written by ingest_llm_moods.py; one row per track, model and prompt version"
+        columns:
+          - name: track_id
+            description: "Spotify track ID"
+      - name: mood_labels
+        description: "My own hand labels, written by the dashboard's Mood Lab page (not managed by dbt)"
+        columns:
+          - name: track_id
+            description: "Spotify track ID"
+      - name: raw_streaming_history
+        description: "Full listening history from Spotify's extended streaming history export, loaded by import_history.py"
+        columns:
+          - name: track_id
+            description: "Spotify track ID"

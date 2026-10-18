@@ -1,3 +1,8 @@
+# Pinned so the data volume is always spotifydatapipeline_pgdata, whatever this folder is called or moves to.
+# Without it Compose derives the project (and so the volume) name from the folder name, and moving the folder
+# would silently point it at a new, empty volume.
+name: spotifydatapipeline
+
 services:
   postgres:
     image: postgres:16
@@ -11,6 +16,7 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
 volumes:
   pgdata:

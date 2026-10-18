@@ -176,10 +176,6 @@ None of the mood methods is ground truth, so the Mood Lab scores them against **
 3. The scorecard shows, per method, how many songs it can label, how often it agrees with you, and Cohen's kappa.
    With fewer than 30 labels the numbers are rough.
 
-The **Claude's thoughts** tab is a one-off theoretical test: Claude labelled the same songs once by hand (snapshot in
-`analysis/claude_thoughts.json`, loaded with `python analysis/load_claude_thoughts.py`) and the tab scores it against your
-labels, flagging the songs whose earlier label Claude had already seen so they can be left out.
-
 Privacy: only song metadata is sent (title, artist names, album, Last.fm tags, ReccoBeats' numbers and, for the
 third variant, your description), never ids, dates, keys or play history. On Google's free tier prompts may be used to improve its products and reviewed by humans;
 the paid tier does not do this.

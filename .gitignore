@@ -13,3 +13,4 @@ analysis/output/
 analysis/*.log
 backups/
 Spotify_Extended/
+analysis/claude_thoughts.json

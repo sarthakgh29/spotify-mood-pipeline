@@ -55,17 +55,6 @@ LABELLED_SQL = """
 """
 
 
-CLAUDE_SQL = """
-    SELECT e.*, c.mood AS claude_mood, c.confidence AS claude_conf, c.reason AS claude_reason,
-           c.saw_label_before, t.album_name, cv.cover_url
-    FROM dbt_dev.mood_method_eval e
-    JOIN claude_thoughts c ON c.track_id = e.track_id
-    LEFT JOIN (SELECT track_id, max(album_name) AS album_name
-               FROM dbt_dev.stg_recently_played GROUP BY track_id) t ON t.track_id = e.track_id
-    LEFT JOIN dbt_dev.stg_track_covers cv ON cv.track_id = e.track_id
-"""
-
-
 def save_label(track_id, mood, note):
     note = ai_labeler.clean_note(note) or None
     with get_engine().begin() as conn:
@@ -95,7 +84,7 @@ except Exception as exc:
     st.code(str(exc))
     st.stop()
 
-tab_label, tab_score, tab_claude, tab_help = st.tabs(["🎧 Label songs", "📊 Scorecard", "🧠 Claude's thoughts", "📖 How to label"])
+tab_label, tab_score, tab_help = st.tabs(["🎧 Label songs", "📊 Scorecard", "📖 How to label"])
 
 # ================================================================= tab 1: label
 with tab_label:
@@ -241,118 +230,6 @@ with tab_score:
                     if pick_method == "llm_notes_mood":
                         table["Your description"] = miss["user_note"].fillna("")
                     st.dataframe(table, hide_index=True, width="stretch", height=320)
-
-# ================================================================= tab: Claude's thoughts
-with tab_claude:
-    st.subheader("Claude's thoughts: a one-time, theoretical test")
-    st.markdown(
-        "As an experiment, Claude (the AI assistant that helped build this project) labelled the same songs **once, by hand**, "
-        "as if it were another method. It saw only what Gemini's 'with the audio numbers' run sees: title, artists, album, "
-        "Last.fm tags and ReccoBeats' numbers where they exist, plus the labelling rule on the first tab, plus whatever Claude "
-        "already knew about a song. It did **not** look at your labels or descriptions before writing its own down. "
-        "This is a snapshot, not part of the pipeline: it can't be re-run or updated by a script."
-    )
-    st.warning(
-        "**What can bias this test:** before labelling, Claude had seen your *first* 18 labels (a backup from before the reset) "
-        "and the overall results of the Gemini run (your label mix and Gemini's confusion table). Songs whose earlier label "
-        "Claude had seen are flagged, and the 'clean' columns below leave them out. Treat the clean numbers as the honest ones."
-    )
-    try:
-        cl = pd.read_sql(CLAUDE_SQL, get_engine())
-    except Exception:
-        cl = None
-    if cl is None or cl.empty:
-        st.info("The snapshot isn't loaded. Run  `python analysis/load_claude_thoughts.py`  (see analysis/claude_thoughts.json).")
-    else:
-        clean = cl[~cl["saw_label_before"]]
-        cols = [("claude_mood", "Claude (by hand, once)"), ("audio_mood", "ReccoBeats audio rule"),
-                ("llm_hybrid_mood", "Gemini + audio numbers"), ("llm_text_mood", "Gemini, text only"),
-                ("genre_mood", "Last.fm genre tags")]
-
-        def numbers(frame, col):
-            d = frame[frame[col].notna()]
-            if d.empty:
-                return 0, None, None
-            k = cohen_kappa(d["user_mood"], d[col])
-            return len(d), agreement(d["user_mood"], d[col]), (None if k != k else k)
-
-        rows = []
-        for col, name in cols:
-            n_all, a_all, k_all = numbers(cl, col)
-            n_cl, a_cl, k_cl = numbers(clean, col)
-            rows.append({"Method": name, "Songs": n_all, "Agrees": a_all, "Kappa": k_all,
-                         "Clean songs": n_cl, "Agrees (clean)": a_cl, "Kappa (clean)": k_cl})
-        st.markdown(f"**Against your labels** ({len(cl)} songs; {len(clean)} are 'clean')")
-        st.dataframe(
-            pd.DataFrame(rows), hide_index=True, width="stretch",
-            column_config={
-                "Agrees": st.column_config.ProgressColumn("Agrees", min_value=0.0, max_value=1.0, format="percent"),
-                "Agrees (clean)": st.column_config.ProgressColumn("Agrees (clean)", min_value=0.0, max_value=1.0, format="percent"),
-                "Kappa": st.column_config.NumberColumn("Kappa", format="%.2f"),
-                "Kappa (clean)": st.column_config.NumberColumn("Kappa (clean)", format="%.2f"),
-            })
-        st.caption("Methods label different numbers of songs (the audio rule and Last.fm can't label songs with no data), so rows "
-                   "aren't strictly comparable. With this few songs a gap of ten points or so is within noise.")
-
-        left, right = st.columns(2)
-        with left:
-            st.markdown("**Does Claude know when it is unsure?** (clean songs)")
-            calib = []
-            for level in ("high", "medium", "low"):
-                g = clean[clean["claude_conf"] == level]
-                calib.append({"Claude's confidence": level, "Songs": len(g),
-                              "Agrees with you": agreement(g["user_mood"], g["claude_mood"]) if len(g) else None})
-            st.dataframe(pd.DataFrame(calib), hide_index=True, width="stretch", column_config={
-                "Agrees with you": st.column_config.ProgressColumn("Agrees with you", min_value=0.0, max_value=1.0, format="percent")})
-        with right:
-            st.markdown("**The songs ReccoBeats has no numbers for**")
-            gap = cl[cl["audio_mood"].isna()]
-            if gap.empty:
-                st.write("None.")
-            else:
-                st.metric(f"{len(gap)} songs: Claude agrees with you", f"{agreement(gap['user_mood'], gap['claude_mood']):.0%}")
-                st.caption("Gemini (text only) on the same songs: "
-                           f"{agreement(gap['user_mood'], gap['llm_text_mood']):.0%}" if gap["llm_text_mood"].notna().any() else "")
-                st.caption("These are mostly recent releases an AI model hasn't heard of, so it is guessing from titles and tags, "
-                           "like the other methods. That is the gap a supplement has to fill.")
-
-        a, b = st.columns([2, 3])
-        with a:
-            st.markdown("**You (rows) vs Claude (columns)**")
-            ct = pd.crosstab(pd.Categorical(cl["user_mood"], categories=MOODS),
-                             pd.Categorical(cl["claude_mood"], categories=MOODS), dropna=False)
-            fig = px.imshow(ct.values, x=[m.capitalize() for m in MOODS], y=[m.capitalize() for m in MOODS], text_auto=True,
-                            color_continuous_scale="Greens", labels=dict(x="Claude says", y="You said", color="Songs"))
-            fig.update_layout(margin=dict(t=10), height=340, coloraxis_showscale=False)
-            st.plotly_chart(fig, width="stretch", key="claude_confusion")
-        with b:
-            st.markdown("**Mix of labels**")
-            mix = pd.DataFrame({"You": cl["user_mood"].value_counts(), "Claude": cl["claude_mood"].value_counts()}).reindex(MOODS).fillna(0).astype(int)
-            mix.index = [m.capitalize() for m in mix.index]
-            st.dataframe(mix, width="stretch")
-
-        st.markdown("**Song by song** (hover a title for its cover; the title links to Spotify)")
-        view = st.radio("Show", ["All songs", "Only where Claude disagreed with you", "Only songs whose earlier label Claude had not seen"],
-                        horizontal=True, key="claude_view")
-        songs = cl.copy()
-        if view.startswith("Only where"):
-            songs = songs[songs["claude_mood"] != songs["user_mood"]]
-        elif view.startswith("Only songs"):
-            songs = songs[~songs["saw_label_before"]]
-        if songs.empty:
-            st.info("No songs match.")
-        else:
-            songs = songs.assign(
-                **{"Claude": songs["claude_mood"].map(mood_badge), "You": songs["user_mood"].map(mood_badge),
-                   "Result": (songs["claude_mood"] == songs["user_mood"]).map({
-                       True: '<span style="color:#1DB954;font-weight:600">Same</span>',
-                       False: '<span style="color:#FFC000;font-weight:600">Differs</span>'}),
-                   "Confidence": songs["claude_conf"], "Claude's reason": songs["claude_reason"],
-                   "Seen before": songs["saw_label_before"].map({True: "yes", False: ""})})
-            st.markdown(track_table(songs, [("Claude says", "Claude"), ("Confidence", "Confidence"), ("You said", "You"),
-                                            ("Result", "Result"), ("Claude's reason", "Claude's reason"),
-                                            ("Earlier label seen", "Seen before")],
-                                    html_cols=("Claude", "You", "Result"), scroll_height=520), unsafe_allow_html=True)
 
 # ================================================================= tab 3: help
 with tab_help:

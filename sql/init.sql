@@ -85,16 +85,6 @@ CREATE TABLE IF NOT EXISTS mood_labels (
     labelled_at TIMESTAMPTZ DEFAULT now()
 );
 
--- One-time snapshot of Claude's hand labels for the songs the user labelled (analysis/load_claude_thoughts.py).
-CREATE TABLE IF NOT EXISTS claude_thoughts (
-    track_id         TEXT PRIMARY KEY,
-    mood             TEXT NOT NULL,
-    confidence       TEXT NOT NULL,
-    reason           TEXT NOT NULL,
-    saw_label_before BOOLEAN NOT NULL DEFAULT false,   -- true if Claude had already seen the user's earlier label
-    labelled_at      TIMESTAMPTZ DEFAULT now()
-);
-
 -- Full listening history from Spotify's "Extended streaming history" export (import_history.py). Music plays only;
 -- the export's IP address and country columns are deliberately not stored.
 CREATE TABLE IF NOT EXISTS raw_streaming_history (

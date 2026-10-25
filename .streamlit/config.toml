@@ -1,0 +1,7 @@
+# Dark theme in the colours of Johan's Lifetime-Wrapped page. theme.py adds the glow, gradients and card styling on top.
+[theme]
+base = "dark"
+primaryColor = "#1ed760"
+backgroundColor = "#090d12"
+secondaryBackgroundColor = "#131a22"
+textColor = "#eef2f6"

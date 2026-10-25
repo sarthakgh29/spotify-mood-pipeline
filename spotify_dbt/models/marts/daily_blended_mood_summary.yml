@@ -1,0 +1,25 @@
+version: 2
+
+models:
+  - name: daily_blended_mood_summary
+    description: "Daily minutes per mood where each play uses its ReccoBeats audio mood if the track has one, else its Last.fm genre mood"
+    columns:
+      - name: listen_date
+        tests:
+          - not_null
+      - name: mood
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['calm', 'mellow', 'intense', 'upbeat']
+      - name: minutes_from_audio
+        description: "Minutes in this row whose mood came from ReccoBeats; the rest came from Last.fm"
+        tests:
+          - not_null
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - listen_date
+              - mood

@@ -1,0 +1,19 @@
+version: 2
+
+models:
+  - name: all_plays
+    description: "Downloaded streaming history plus later pipeline plays, one row per play"
+    columns:
+      - name: played_at
+        tests: [not_null]
+      - name: track_id
+        tests: [not_null]
+      - name: source
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['history', 'pipeline']
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [played_at, track_id]

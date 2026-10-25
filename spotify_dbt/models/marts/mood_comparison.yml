@@ -1,0 +1,63 @@
+version: 2
+
+models:
+  - name: mood_comparison_track
+    description: "Distinct tracks that have both a genre mood and an audio mood"
+    columns:
+      - name: track_id
+        tests:
+          - not_null
+          - unique
+      - name: genre_mood
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['calm', 'mellow', 'intense', 'upbeat']
+      - name: audio_mood
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['calm', 'mellow', 'intense', 'upbeat']
+
+  - name: mood_comparison_artist
+    description: "Primary artists with both labels; audio mood is the most common across their tracks"
+    columns:
+      - name: artist_id
+        tests:
+          - not_null
+          - unique
+      - name: genre_mood
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['calm', 'mellow', 'intense', 'upbeat']
+      - name: audio_mood
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['calm', 'mellow', 'intense', 'upbeat']
+
+  - name: stg_track_covers
+    description: "Album cover URL per track (Spotify image hosts only)"
+    columns:
+      - name: track_id
+        tests:
+          - not_null
+          - unique
+
+  - name: daily_audio_mood_summary
+    description: "Daily listening minutes per audio mood (ReccoBeats valence/energy), same shape as daily_mood_summary"
+    columns:
+      - name: listen_date
+        tests:
+          - not_null
+      - name: mood
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['calm', 'mellow', 'intense', 'upbeat']

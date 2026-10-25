@@ -30,7 +30,7 @@ Last.fm API (artist tags) ------+                        |
 * Compares the genre-based mood with an audio-based mood (ReccoBeats valence and energy), with agreement and Cohen's kappa
 * Looks up any pasted Spotify song link and shows both mood labels for it
 * Optionally labels every song's mood with Gemini and scores all methods against your own hand labels (Mood Lab)
-* Imports Spotify's Extended Streaming History export (years of plays) and shows it as a Lifetime Wrapped page: top songs and artists, year and month drill-down, when you listen, habits, forgotten favourites and a shareable card
+* Imports Spotify's Extended Streaming History export (years of plays) and shows it as a Lifetime Wrapped page (hosted online at https://lifetime-wrapped.pages.dev/): top songs and artists, year and month drill-down, when you listen, habits, forgotten favourites and a shareable card
 * Looks up any artist or song in that history (peak period, plays per month and year, time of day) and exports an artist's most-played songs as a Spotify playlist
 * Shows the last 10 days of genre and audio mood on the dashboard, and finds "Discovered recently" against the whole history
 * Runs on a daily schedule via Prefect, with retries and dbt tests guarding data quality
@@ -124,9 +124,13 @@ Run `streamlit run dashboard.py`. Pages are tabs across the top:
 * **Lifetime Wrapped**: your whole history from Spotify's Extended Streaming History export: top songs and artists, year and month drill-down, when you listen, habits (discovery, repeats), forgotten favourites and a shareable wrapped card.
 * **Song Globe**: your songs on a spinnable globe, placed by who they were played with (songs from the same sittings sit close together). Move in eight directions with the arrow keys, scrolling or swiping; click a song for its stats and a link to open it in Spotify. Needs the album covers from `python globe_covers.py` (about 2,000 songs, a few minutes, safe to re-run). The globe itself is from Johan's Lifetime-Wrapped project.
 
-## Lifetime Wrapped (optional)
+## Lifetime Wrapped
 
-Request your *Extended streaming history* from Spotify's privacy page, unzip it, then:
+**This part of the project is hosted online and can be used right now: https://lifetime-wrapped.pages.dev/**
+
+Anyone can open it, drop in their own Spotify *Extended streaming history* and get their lifetime wrapped: top songs and artists, year and month drill-down, when they listen, habits, forgotten favourites, a Song Globe and a shareable card. The file is read in the visitor's own browser and is never uploaded. The hosted site is the standalone version, built together with Johan Chopra ([source code](https://github.com/johanchopra28/Lifetime-Wrapped)).
+
+The tab in this project's own dashboard works on the same idea but runs on your local Postgres and dbt, so it can combine your history with the plays the pipeline collects every day. To set it up, request your *Extended streaming history* from Spotify's privacy page, unzip it, then:
 
 ```
 python import_history.py Spotify_Extended   # music plays only; the export's IP address and country are never stored

@@ -9,7 +9,7 @@ from sqlalchemy import text
 import ai_labeler
 from db import get_engine
 from mood_stats import agreement, cohen_kappa
-from track_ui import esc, inject_css, mood_badge, track_html, track_table
+from track_ui import COVER_COLUMN, add_cover_column, esc, inject_css, mood_badge, track_html, track_table
 
 load_dotenv()
 inject_css()
@@ -130,9 +130,9 @@ with tab_label:
         st.markdown("**Your latest labels**")
         recent = labelled.head(5)
         st.dataframe(
-            pd.DataFrame({"Song": recent["name"], "Mood": recent["mood"].str.capitalize(),
-                          "Your description": recent["note"].fillna("")}),
-            hide_index=True, width="stretch")
+            add_cover_column(pd.DataFrame({"Song": recent["name"], "Mood": recent["mood"].str.capitalize(),
+                                           "Your description": recent["note"].fillna("")}), recent["track_id"]),
+            column_config={"Cover": COVER_COLUMN}, hide_index=True, width="stretch")
         c_undo, _ = st.columns([1, 3])
         if c_undo.button("↩ Undo the last label"):
             delete_label(labelled.iloc[0]["track_id"])
@@ -229,7 +229,8 @@ with tab_score:
                         table["Gemini's reason"] = miss[f"{stem}_reason"]
                     if pick_method == "llm_notes_mood":
                         table["Your description"] = miss["user_note"].fillna("")
-                    st.dataframe(table, hide_index=True, width="stretch", height=320)
+                    st.dataframe(add_cover_column(table, miss["track_id"]), column_config={"Cover": COVER_COLUMN},
+                                 hide_index=True, width="stretch", height=320)
 
 # ================================================================= tab 3: help
 with tab_help:

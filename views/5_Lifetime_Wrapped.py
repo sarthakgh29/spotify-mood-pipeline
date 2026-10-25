@@ -1,4 +1,5 @@
 """Lifetime Wrapped: every year of listening, from the downloaded history plus the live pipeline."""
+import json
 import webbrowser
 
 import numpy as np
@@ -8,10 +9,11 @@ import plotly.graph_objects as go
 import streamlit as st
 from plotly.subplots import make_subplots
 
+import card_image
 import playlists
 import wrapped as w
 from db import get_engine
-from track_ui import esc, inject_css, track_html
+from track_ui import esc, inject_css, track_cell
 
 GREEN = "#1DB954"
 GREY = "#8a919c"
@@ -26,6 +28,13 @@ def load_history():
         "select played_at, track_id, track_name, artist_name, album_name, seconds_played::float as seconds_played, "
         "is_real_play, skipped from dbt_dev.all_plays", get_engine())
     return w.prepare(df)
+
+
+@st.cache_data(show_spinner=False, max_entries=24)
+def card_png(card_json, cover_url):
+    """The Wrapped card as PNG bytes. Cached by the card's content, so the cover is fetched and the picture drawn once per card."""
+    cover = card_image.fetch_cover_bytes(cover_url) if cover_url else None
+    return card_image.build_card_png(json.loads(card_json), cover)
 
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -97,7 +106,7 @@ def fmt_int(n):
 
 
 def cell(r):
-    return track_html(r.track_id, r.track_name, r.artist_name, r.album_name, covers.get(r.track_id))
+    return track_cell(r.track_id, r.track_name, r.artist_name, r.album_name, covers.get(r.track_id))
 
 
 def songs_table(df, extra=()):
@@ -519,4 +528,11 @@ max-width:860px;box-shadow:0 12px 40px rgba(0,0,0,.35);font-family:inherit}}
       <div class="k">{esc(stat3[0])}</div><div class="v">{esc(stat3[1])}</div></div>
   </div>
 </div>""", unsafe_allow_html=True)
-    st.caption("Take a screenshot to share it.")
+    card = {"label": label, "sub": new_line, "minutes": float(card_hours * 60), "plays": int(card_plays), "songs": int(songs_n),
+            "artists": int(artists_n),
+            "top": {"name": str(top["track_name"]), "artist": str(top["artist_name"]), "plays": int(top["plays"])},
+            "top_songs": [(str(r.track_name), str(r.artist_name)) for r in t_songs.itertuples()],
+            "top_artists": [(str(r.artist_name), int(r.plays)) for r in t_artists.itertuples()]}
+    st.download_button("Download card as image", data=card_png(json.dumps(card), img), file_name=f"lifetime-wrapped-{label.lower()}.png",
+                       mime="image/png", type="primary", icon=":material/download:", on_click="ignore", key=f"dl_card_{label}")
+    st.caption("Saved as a PNG (1080 x 1350, the shape Instagram posts like) on your own device.")

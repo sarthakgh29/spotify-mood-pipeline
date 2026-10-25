@@ -8,17 +8,20 @@ already have a cover (or were looked up recently) are skipped; the rest go throu
 endpoint, a few per second. Safe to run again.
 """
 import os
+import time
 from pathlib import Path
 
 import pandas as pd
 import psycopg2
+import requests
 from dotenv import load_dotenv
 
 import covers
+import globe_covers
 import wrapped as w
 
 ROOT = Path(__file__).resolve().parent
-TOP_OVERALL, TOP_PER_YEAR = 600, 40
+TOP_OVERALL, TOP_PER_YEAR = 2000, 100
 
 
 def wanted_track_ids(conn):
@@ -49,7 +52,12 @@ def main():
     print(f"songs wanted: {len(ids):,} | already covered: {len(ids) - len(todo):,} | to fetch: {len(todo):,}", flush=True)
     for i in range(0, len(todo), 100):
         chunk = todo[i:i + 100]
-        covers.save_covers(conn, [(t, covers.oembed_cover(t)) for t in chunk])
+        with requests.Session() as sess:                      # waits and retries when Spotify says "too many requests"
+            rows = []
+            for t in chunk:
+                rows.append((t, globe_covers.get_cover(t, sess)))
+                time.sleep(globe_covers.PAUSE_S)
+        covers.save_covers(conn, rows)
         print(f"  {min(i + 100, len(todo)):,} / {len(todo):,}", flush=True)
     with conn.cursor() as cur:
         cur.execute("SELECT count(*) FILTER (WHERE cover_url IS NOT NULL), count(*) FROM track_covers")

@@ -10,7 +10,8 @@ load_dotenv()
 from db import get_engine
 import lookup
 from mood_stats import cohen_kappa
-from track_ui import MOOD_COLORS as TRACK_MOOD_COLORS, esc, inject_css, mood_badge, tag_chip, track_table
+from track_ui import (COVER_COLUMN, MOOD_COLORS as TRACK_MOOD_COLORS, add_cover_column, esc, inject_css, mood_badge, tag_chip,
+                      track_table)
 
 inject_css()
 
@@ -45,7 +46,7 @@ def load_data():
         GROUP BY s.track_id
     """, engine)
     ratings = pd.read_sql("""
-        SELECT s.track_name, s.artist_names, f.valence, f.energy, f.danceability, f.acousticness,
+        SELECT f.track_id, s.track_name, s.artist_names, f.valence, f.energy, f.danceability, f.acousticness,
                f.instrumentalness, f.liveness, f.speechiness, f.loudness, f.tempo
         FROM raw_track_features f
         JOIN (SELECT track_id, max(track_name) AS track_name, max(artist_names) AS artist_names
@@ -388,7 +389,8 @@ else:
             for col in zero_one:
                 config[col] = st.column_config.ProgressColumn(col.capitalize(), min_value=0.0, max_value=1.0, format="%.2f")
             ordered = ["track_name", "artist_names"] + zero_one + ["loudness", "tempo", "audio_mood"]
-            st.dataframe(view_df[ordered], column_config=config, width="stretch", hide_index=True, height=420)
+            st.dataframe(add_cover_column(view_df[ordered], view_df["track_id"]), column_config={"Cover": COVER_COLUMN, **config},
+                         width="stretch", hide_index=True, height=420)
             st.caption(f"{len(view_df)} songs ReccoBeats knows. Click a column heading to sort, and scroll sideways for the rest.")
             st.markdown(
                 "**What each rating means.** ReccoBeats provides these under the same names as Spotify's former audio "
@@ -543,12 +545,13 @@ st.subheader("Most-played tracks with no audio features")
 missing = plays[~has_a].groupby("track_id").agg(
     Track=("track_name", "first"), Artist=("artist_names", "first"),
     **{"Genre mood": ("genre_mood", "first")}, Plays=("track_id", "size"),
-).reset_index(drop=True).sort_values("Plays", ascending=False).head(15)
+).reset_index().sort_values("Plays", ascending=False).head(15)
+missing_ids = missing.pop("track_id")
 missing["Genre mood"] = missing["Genre mood"].str.capitalize().fillna("—")
 if missing.empty:
     st.success("Every track in this window has audio features.")
 else:
-    st.dataframe(missing, width="stretch", hide_index=True)
+    st.dataframe(add_cover_column(missing, missing_ids), column_config={"Cover": COVER_COLUMN}, width="stretch", hide_index=True)
     st.caption(
         "If these are mostly the same kinds of artists, the audio method has a coverage bias, "
         "and its mood totals under-represent that part of your listening."

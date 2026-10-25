@@ -9,6 +9,8 @@ Usage:
     python ingest_features.py --limit 80        # cap how many tracks are fetched in one run
     python ingest_features.py --retry-misses    # also retry every stored miss, regardless of age
     python ingest_features.py --refresh-found   # fetch tracks that already have features again
+    python ingest_features.py --history         # look up the tracks of the imported Spotify history (most played first)
+    python ingest_features.py --history --limit 500   # only the 500 most played history tracks
 """
 import argparse
 import json
@@ -215,19 +217,30 @@ def process_batch(batch):
     return rows
 
 
-def get_pending_track_ids(conn, limit=None, retry_misses=False, refresh_found=False):
-    """Every track ever played that has no stored result, plus stored misses older than the retry window.
-    With refresh_found, tracks that already have features are fetched again too (to fill newer columns)."""
+def get_pending_track_ids(conn, limit=None, retry_misses=False, refresh_found=False, source="plays"):
+    """Every track that has no stored result, plus stored misses older than the retry window.
+    With refresh_found, tracks that already have features are fetched again too (to fill newer columns).
+    source: "plays" = tracks played since the pipeline started (raw_recently_played), "history" = tracks in the imported
+    streaming history (raw_streaming_history, most played first), "all" = both."""
     stale = "TRUE" if retry_misses else f"f.fetched_at < now() - interval '{RETRY_NOT_FOUND_DAYS} days'"
     refresh = "OR f.status = 'found'" if refresh_found else ""
+    wanted = {
+        "plays": "SELECT DISTINCT track_id, 0 AS real_plays FROM raw_recently_played",
+        "history": "SELECT track_id, count(*) FILTER (WHERE ms_played >= 30000) AS real_plays "
+                   "FROM raw_streaming_history GROUP BY track_id",
+        "all": "SELECT track_id, max(real_plays) AS real_plays FROM ("
+               "SELECT track_id, 0 AS real_plays FROM raw_recently_played UNION ALL "
+               "SELECT track_id, count(*) FILTER (WHERE ms_played >= 30000) FROM raw_streaming_history GROUP BY track_id"
+               ") u GROUP BY track_id",
+    }[source]
     sql = f"""
-        SELECT DISTINCT p.track_id
-        FROM raw_recently_played p
-        LEFT JOIN raw_track_features f ON f.track_id = p.track_id
+        SELECT w.track_id
+        FROM ({wanted}) w
+        LEFT JOIN raw_track_features f ON f.track_id = w.track_id
         WHERE f.track_id IS NULL
            OR (f.status = 'not_found' AND {stale})
            {refresh}
-        ORDER BY p.track_id
+        ORDER BY w.real_plays DESC, w.track_id
     """
     if limit:
         sql += f" LIMIT {int(limit)}"
@@ -317,9 +330,9 @@ def probe():
         time.sleep(PAUSE_S)
 
 
-def run(limit=None, retry_misses=False, refresh_found=False):
+def run(limit=None, retry_misses=False, refresh_found=False, source="plays"):
     conn = get_db_connection()
-    pending = get_pending_track_ids(conn, limit, retry_misses, refresh_found)
+    pending = get_pending_track_ids(conn, limit, retry_misses, refresh_found, source)
     print(f"{len(pending)} tracks to look up ({BATCH_SIZE} per request)")
     found = not_found = skipped = 0
 
@@ -347,10 +360,12 @@ if __name__ == "__main__":
     parser.add_argument("--probe", action="store_true")
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--retry-misses", action="store_true")
+    parser.add_argument("--history", action="store_true",
+                        help="look up the tracks of the imported Spotify history (raw_streaming_history), most played first")
     parser.add_argument("--refresh-found", action="store_true",
                         help="also fetch tracks that already have features again (fills newer rating columns)")
     args = parser.parse_args()
     if args.probe:
         probe()
     else:
-        run(args.limit, args.retry_misses, args.refresh_found)
+        run(args.limit, args.retry_misses, args.refresh_found, "history" if args.history else "plays")

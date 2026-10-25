@@ -2,6 +2,7 @@
 Everything interpolated into HTML is escaped, and cover URLs must be Spotify image hosts."""
 import html
 
+import pandas as pd
 import streamlit as st
 
 from covers import TRACK_ID, is_allowed_cover_url
@@ -27,11 +28,33 @@ table.trk-table td{padding:6px 8px;border-bottom:1px solid #2a2a2a;vertical-alig
 .scroll-box table.trk-table th{position:sticky;top:0;z-index:2;background:#0b1016}
 /* A scrolling box clips anything below its edge, so in here the cover card opens beside the row, not under it */
 .scroll-box .trk .card{left:100%;top:50%;transform:translateY(-50%);margin-left:10px}
+.trk-row{display:inline-flex;align-items:center;gap:10px;vertical-align:middle}
+.thumb{width:36px;height:36px;border-radius:6px;object-fit:cover;flex:none;background:#1b222c;display:inline-block}
 .badge{display:inline-block;padding:1px 10px;border-radius:999px;font-size:.82rem;font-weight:600}
 .chip{display:inline-block;margin:1px 4px 1px 0;padding:0 8px;border-radius:999px;border:1px solid;font-size:.8rem}
 .chip.ign{border-style:dashed;opacity:.55}
 .muted{opacity:.7;font-size:.85rem}
 </style>"""
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def cover_url_map():
+    """{track id: album cover URL} for every track whose cover is known."""
+    from db import get_engine                       # imported here so this module stays importable without a database
+    c = pd.read_sql("select track_id, cover_url from track_covers where cover_url is not null", get_engine())
+    return dict(zip(c["track_id"], c["cover_url"]))
+
+
+def add_cover_column(df, track_ids):
+    """A copy of df with a leading "Cover" column (an image URL, or empty) for the given track ids, in row order.
+    Show it with column_config={"Cover": COVER_COLUMN}."""
+    urls = cover_url_map()
+    out = df.copy()
+    out.insert(0, "Cover", [urls.get(t) for t in track_ids])
+    return out
+
+
+COVER_COLUMN = st.column_config.ImageColumn("", width="small")
 
 
 def inject_css():
@@ -56,6 +79,14 @@ def track_html(track_id, name, artist="", album="", cover_url=None):
     return f'<span class="trk" tabindex="0">{link}<span class="card">{img}<span class="txt"><b>{name_h}</b>{meta}</span></span></span>'
 
 
+def track_cell(track_id, name, artist="", album="", cover_url=None):
+    """A song for a table cell: its small album cover (a plain tile when there is none) beside the linked title with its hover card."""
+    cover = _clean(cover_url)
+    thumb = (f'<img class="thumb" src="{html.escape(cover, quote=True)}" alt="" loading="lazy">'
+             if is_allowed_cover_url(cover) else '<span class="thumb"></span>')
+    return f'<span class="trk-row">{thumb}{track_html(track_id, name, artist, album, cover_url)}</span>'
+
+
 def track_table(df, extra_columns=(), id_col="track_id", name_col="track_name",
                 artist_col="artist_names", album_col="album_name", cover_col="cover_url", html_cols=(),
                 scroll_height=None):
@@ -67,7 +98,7 @@ def track_table(df, extra_columns=(), id_col="track_id", name_col="track_name",
              + "</tr></thead><tbody>"]
     for _, row in df.iterrows():
         cells = [
-            track_html(row.get(id_col), row.get(name_col), row.get(artist_col),
+            track_cell(row.get(id_col), row.get(name_col), row.get(artist_col),
                        row.get(album_col), row.get(cover_col)),
             html.escape(_clean(row.get(artist_col))),
         ] + [_clean(row.get(c)) if c in html_cols else html.escape(_clean(row.get(c))) for _, c in extra_columns]

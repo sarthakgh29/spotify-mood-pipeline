@@ -77,6 +77,14 @@ the valence/energy-over-time chart, a list of the most-played tracks with no aud
 - Dashboard: the two mood-over-time charts show only the last 10 days with listening; "Discovered recently" now checks
   against `all_plays`, so a song first heard years ago no longer counts as new.
 
+**Wrapped card download, covers everywhere, Song Lookup page removed (Oct 25)**
+- `card_image.py` draws the Wrapped card as a 1080 x 1350 PNG (layout from the card download in Johan's Lifetime-Wrapped, drawn with Pillow
+  because this dashboard runs on Python); fonts for Japanese, Korean and Hindi titles are picked per song. Button on the Wrapped card tab.
+- Album covers next to every song on the dashboard: `track_ui.track_cell` (used by `track_table` and the Wrapped page) and a cover column
+  (`add_cover_column`) on the plain tables of Mood Comparison and Mood Lab. `history_covers.py` now covers everything the Wrapped page lists
+  and waits and retries when Spotify rate-limits.
+- The top-nav **Song Lookup** page is removed (`lookup.py` stays: Mood Comparison uses it).
+
 **Reliability and operations**
 - `docker-compose.yml` pins the project name (`name: spotifydatapipeline`) so the data volume no longer depends on the
   folder name. Before this, moving the project folder made `docker compose up` point at a new, empty volume.

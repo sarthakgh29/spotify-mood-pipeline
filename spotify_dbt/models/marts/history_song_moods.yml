@@ -1,0 +1,14 @@
+version: 2
+
+models:
+  - name: history_song_moods
+    description: "Songs from the whole listening history that ReccoBeats has features for, with their audio mood"
+    columns:
+      - name: track_id
+        tests: [unique, not_null]
+      - name: audio_mood
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['upbeat', 'intense', 'calm', 'mellow']

@@ -28,7 +28,6 @@ Last.fm API (artist tags) ------+                        |
 * Lets you like tracks from that list; likes are saved to Postgres from the dashboard
 * Links every track to Spotify, with a hover card showing the album cover
 * Compares the genre-based mood with an audio-based mood (ReccoBeats valence and energy), with agreement and Cohen's kappa
-* Looks up any pasted Spotify song link and shows both mood labels for it
 * Optionally labels every song's mood with Gemini and scores all methods against your own hand labels (Mood Lab)
 * Imports Spotify's Extended Streaming History export (years of plays) and shows it as a Lifetime Wrapped page (hosted online at https://lifetime-wrapped.pages.dev/): top songs and artists, year and month drill-down, when you listen, habits, forgotten favourites and a shareable card
 * Looks up any artist or song in that history (peak period, plays per month and year, time of day) and exports an artist's most-played songs as a Spotify playlist
@@ -119,7 +118,6 @@ Run `streamlit run dashboard.py`. Pages are tabs across the top:
 
 * **Dashboard**: today's vibe (play by play, the mood of the song's own audio from ReccoBeats where it has the track, and the Last.fm genre mood only where it does not; the banner says how many minutes came from each), mood over time (genre-based and audio-based; click a coloured block to see the songs behind it), listening activity, song of the day, discoveries and likes. Track names link to Spotify and show a cover card on hover.
 * **Mood Comparison**: genre mood against audio mood: coverage, daily charts, agreement, Cohen's kappa, confusion matrix and a song-by-song table.
-* **Song Lookup**: paste a Spotify song link to see its details, ReccoBeats ratings, Last.fm tags and both mood labels. Nothing is saved.
 * **Mood Lab**: label songs by ear (blind: no method's guess is shown), then a scorecard shows which method is closest to you.
 * **Lifetime Wrapped**: your whole history from Spotify's Extended Streaming History export: top songs and artists, year and month drill-down, when you listen, habits (discovery, repeats), forgotten favourites and a shareable wrapped card.
 * **Song Globe**: your songs on a spinnable globe, placed by who they were played with (songs from the same sittings sit close together). Move in eight directions with the arrow keys, scrolling or swiping; click a song for its stats and a link to open it in Spotify. Needs the album covers from `python globe_covers.py` (about 2,000 songs, a few minutes, safe to re-run). The globe itself is from Johan's Lifetime-Wrapped project.
@@ -135,10 +133,12 @@ The tab in this project's own dashboard works on the same idea but runs on your 
 ```
 python import_history.py Spotify_Extended   # music plays only; the export's IP address and country are never stored
 cd spotify_dbt && dbt seed && dbt build      # stg_streaming_history, all_plays (history + later pipeline plays)
-python history_covers.py                     # album covers for the songs the page shows
+python history_covers.py                     # album covers for the songs the page lists (about 2,000; safe to re-run)
 ```
 
 A "real play" is a play of 30 seconds or more; songs released twice are merged by title and artist. To leave a song out (an alarm, say), add its track id to `spotify_dbt/seeds/excluded_tracks.csv` and run `dbt seed && dbt build`. The export folder is git-ignored.
+
+The **Wrapped card** tab has a **Download card as image** button: a 1080 x 1350 PNG (the shape Instagram posts like) of the card on screen, drawn by `card_image.py`. Every song list on the dashboard shows the song's album cover next to its title; songs whose cover is not saved yet get a plain tile, and `python history_covers.py` (or `python globe_covers.py`) fetches the missing ones.
 
 The **Look up** tab searches one artist or one song: first and last play, the peak three months, best day, plays per month and per year, and the time of day you play it.
 
@@ -193,8 +193,9 @@ spotify-pipeline/
   ingest_features.py     - ReccoBeats audio features
   pipeline_flow.py       - Prefect flow
   dashboard.py           - Streamlit entry point (top navigation)
-  views/                 - Dashboard, Mood Comparison, Song Lookup, Mood Lab, Lifetime Wrapped, Song Globe (the pages)
+  views/                 - Dashboard, Mood Comparison, Mood Lab, Lifetime Wrapped, Song Globe (the pages)
   import_history.py, wrapped.py, history_covers.py - Lifetime Wrapped: import, analysis functions, covers
+  card_image.py          - draws the Wrapped card as a PNG for the download button
   playlists.py           - create a Spotify playlist from track ids (checks each id is playable)
   globe_data.py          - the song map behind the Song Globe (sessions, embedding, t-SNE); globe_covers.py fetches its covers
   globe_assets/          - the globe's script and styles (from Johan's Lifetime-Wrapped project)
@@ -239,3 +240,7 @@ dbt tests cover not-null checks on key fields, a composite-uniqueness check on `
 * Genre coverage depends on Last.fm community tagging, so smaller artists may have no mood.
 * Plays from before `primary_artist_id` was added have no mood.
 * ReccoBeats' features are its own estimates, not Spotify's, and many recent releases have none, so the audio mood covers only part of the listening.
+
+## Mood playlists from your whole history
+
+`python ingest_features.py --history` asks ReccoBeats for valence and energy of every song in the imported Spotify history (most played first). The dbt model `history_song_moods` turns those numbers into upbeat, intense, calm or mellow, and `python mood_playlists.py --create` makes one private Spotify playlist per mood from the songs you played most (use `--dry-run` to preview, `--max`, `--min-plays`, `--mood`, `--public` to adjust). It only creates new playlists, and ReccoBeats does not know every song, so songs without data are left out.

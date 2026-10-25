@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 from db import get_engine, to_ist, ist_day_label
 from covers import is_allowed_cover_url
-from track_ui import inject_css, track_html, track_table
+from track_ui import inject_css, track_cell, track_html, track_table
 
 load_dotenv()
 
@@ -148,7 +148,6 @@ def toggle_like(engine, track_id, track_name, artist_names):
 st.markdown("""
 <style>
     html { scroll-behavior: smooth; }
-    .block-container { padding-top: 2rem; }
     h1, h2, h3 { font-weight: 700; }
     [data-testid="stMetricValue"] { color: #1DB954; }
 </style>
@@ -568,7 +567,7 @@ if not discovered_recently.empty:
         for _, row in frame.iterrows():
             col_a, col_b = st.columns([5, 1])
             with col_a:
-                link = track_html(row["track_id"], row["track_name"], row["artist_names"],
+                link = track_cell(row["track_id"], row["track_name"], row["artist_names"],
                                   row["album_name"], row["cover_url"])
                 st.markdown(f"{link} - {row['artist_names']} ({row['plays']} plays)", unsafe_allow_html=True)
             with col_b:

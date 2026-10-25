@@ -107,3 +107,14 @@ CREATE INDEX IF NOT EXISTS raw_streaming_history_track_idx ON raw_streaming_hist
 
 -- Prefect's own metadata lives in a separate database (see README, "Scheduling"). Only runs on first start.
 CREATE DATABASE prefect_meta;
+
+-- Playlists made by mood_playlists.py, so a mood is not turned into a second playlist by accident.
+CREATE TABLE IF NOT EXISTS mood_playlists (
+    id          SERIAL PRIMARY KEY,
+    mood        TEXT NOT NULL,
+    playlist_id TEXT NOT NULL,
+    url         TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    songs       INTEGER NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);

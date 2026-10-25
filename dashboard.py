@@ -11,11 +11,11 @@ inject_theme()
 
 pages = [
     st.Page("views/0_Dashboard.py", title="Dashboard", icon="🎧", default=True),
-    st.Page("views/2_Method_Comparison.py", title="Mood Comparison", icon="🔬"),
-    st.Page("views/3_Song_Lookup.py", title="Song Lookup", icon="🔎"),
-    st.Page("views/4_Mood_Lab.py", title="Mood Lab", icon="🧪"),
     st.Page("views/5_Lifetime_Wrapped.py", title="Lifetime Wrapped", icon="🎁"),
     st.Page("views/6_Song_Globe.py", title="Song Globe", icon="🌍"),
+    st.Page("views/7_Mood_Playlists.py", title="Mood Playlists", icon="🎶"),
+    st.Page("views/2_Method_Comparison.py", title="Mood Comparison", icon="🔬"),
+    st.Page("views/4_Mood_Lab.py", title="Mood Lab", icon="🧪"),
 ]
 
 st.navigation(pages, position="top").run()

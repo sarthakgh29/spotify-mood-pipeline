@@ -14,7 +14,10 @@ CSS = f"""<style>
   background-repeat: no-repeat;
   background-attachment: fixed;
 }}
-[data-testid="stHeader"] {{ background: transparent; }}
+/* the same small gap under the navigation bar on every page (Streamlit's default is about 96px), and no gap for the invisible style blocks pages inject */
+[data-testid="stMainBlockContainer"] {{ padding-top: 4.5rem !important; }}
+[data-testid="stElementContainer"]:has(style):not(:has(p, h1, h2, h3, table, iframe, canvas, button)) {{ display: none; }}
+[data-testid="stHeader"] {{ background: rgba(9, 13, 18, 0.55); -webkit-backdrop-filter: blur(14px) saturate(140%); backdrop-filter: blur(14px) saturate(140%); border-bottom: 1px solid rgba(255, 255, 255, 0.06); }}
 
 /* page title: the same green to purple to pink gradient as Johan's headlines */
 [data-testid="stHeadingWithActionElements"] h1 {{
@@ -35,7 +38,7 @@ CSS = f"""<style>
 }}
 
 /* tabs as pills, the open one filled green (Streamlit draws each tab as a div with role="tab" and its own underline element) */
-[data-testid="stTabs"] [role="tablist"] {{ gap: 8px; border-bottom: 0; }}
+[data-testid="stTabs"] [role="tablist"] {{ gap: 8px; border-bottom: 0; padding-bottom: 12px; margin-bottom: 16px; }}
 [data-testid="stTab"] .react-aria-SelectionIndicator {{ display: none; }}
 [data-testid="stTab"] {{
   background: {CARD}; border: 1px solid {LINE}; border-radius: 999px; padding: 4px 16px; height: auto; cursor: pointer;
